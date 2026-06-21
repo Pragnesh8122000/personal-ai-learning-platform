@@ -159,4 +159,38 @@ Includes `manifest.json` for home screen installation.
 
 ---
 
+## 🚀 Deployment (Vercel)
+
+This repo is configured for [Vercel](https://vercel.com) — no GitHub Actions needed. Vercel auto-detects Next.js 16, manages the `.next/cache` build cache for you, and provisions preview URLs for every pull request.
+
+**Branch strategy:**
+- `main` → production (default `*.vercel.app` subdomain)
+- Every other branch and every PR → preview URL (posted by the Vercel bot on the PR)
+
+**One-time setup:**
+1. Go to https://vercel.com/new
+2. Import `Pragnesh8122000/personal-ai-learning-platform`
+3. Vercel auto-detects Next.js, reads `vercel.json`, and reads `.nvmrc` (Node 22 LTS) for the build environment
+4. Click **Deploy** — first deployment to `main` becomes the production URL
+5. (Optional) Add a custom domain in Project Settings → Domains
+
+**Config files in this repo:**
+- `vercel.json` — pins the framework to `nextjs`, sets `productionBranch: "main"`, and uses `npm ci` for reproducible installs
+- `.nvmrc` — Node 22 LTS for both Vercel and local `nvm`/`fnm` users
+- `.vercelignore` — keeps local artifacts out of the deployment bundle
+- `package.json#engines` — declares the supported Node range
+
+**Local sanity check before pushing:**
+```bash
+npm ci
+npm run lint
+npx next build
+```
+
+**Future extensions:**
+- For PR-blocking lint/typecheck *before* Vercel builds, add `.github/workflows/ci.yml`
+- For backend env vars, add them at Project Settings → Environment Variables, scoped per environment
+
+---
+
 **Built with ❤️ for Vaidya-Assist**
