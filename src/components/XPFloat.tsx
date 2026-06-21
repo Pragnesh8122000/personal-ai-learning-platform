@@ -13,8 +13,10 @@ export default function XPFloat({ amount, x, y }: { amount: number; x: number; y
       animate={{ opacity: 0, y: y - 50, scale: 1.2 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 1 }}
+      role="status"
+      aria-live="polite"
       className="fixed pointer-events-none z-50 font-bold text-lg text-primary"
-      style={{ left: x, textShadow: "0 1px 0 rgba(255,255,255,0.4)" }}
+      style={{ left: x }}
     >
       +{amount} XP
     </motion.div>

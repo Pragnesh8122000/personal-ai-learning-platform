@@ -12,7 +12,7 @@ export default function RagPipeline() {
   const nodes = [
     { id: "query", label: "Patient Query", x: 60, y: 160, color: "#5b8def", icon: "💬" },
     { id: "embed", label: "Embed", x: 200, y: 160, color: "#5b8def", icon: "🔢" },
-    { id: "vdb", label: "Vector DB", x: 360, y: 80, color: "#8b5cf6", icon: "🗄️" },
+    { id: "vdb", label: "Vector DB", x: 360, y: 80, color: "var(--purple)", icon: "🗄️" },
     { id: "rerank", label: "Re-rank", x: 360, y: 240, color: "#f59e0b", icon: "📊" },
     { id: "context", label: "Build Context", x: 540, y: 160, color: "#2ccca0", icon: "📋" },
     { id: "llm", label: "LLM", x: 720, y: 160, color: "#ef4444", icon: "🧠" },
@@ -24,7 +24,7 @@ export default function RagPipeline() {
     { from: "query", to: "embed", color: "#5b8def" },
     { from: "embed", to: "vdb", color: "#5b8def" },
     { from: "embed", to: "rerank", color: "#5b8def" },
-    { from: "vdb", to: "context", color: "#8b5cf6" },
+    { from: "vdb", to: "context", color: "var(--purple)" },
     { from: "rerank", to: "context", color: "#f59e0b" },
     { from: "context", to: "llm", color: "#2ccca0" },
     { from: "llm", to: "response", color: "#ef4444" },
@@ -53,12 +53,15 @@ export default function RagPipeline() {
         </p>
       </div>
 
-      <div className="relative w-full" style={{ aspectRatio: "1000 / 320" }}>
+      <div className="relative w-full">
         <svg
           viewBox="0 0 1000 320"
-          className="w-full h-full"
+          className="w-full h-auto"
           xmlns="http://www.w3.org/2000/svg"
+          role="img"
+          aria-label="RAG pipeline diagram"
         >
+          <title>RAG pipeline diagram</title>
           <defs>
             {links.map((l, i) => {
               const from = nodeMap.get(l.from);
@@ -144,7 +147,7 @@ export default function RagPipeline() {
               <text
                 textAnchor="middle"
                 dominantBaseline="central"
-                fontSize="22"
+                fontSize="18"
                 style={{ userSelect: "none" }}
               >
                 {n.icon}
@@ -154,7 +157,7 @@ export default function RagPipeline() {
                 textAnchor="middle"
                 y="55"
                 fill="currentColor"
-                fontSize="11"
+                fontSize="10"
                 fontWeight="600"
                 style={{ userSelect: "none" }}
               >

@@ -59,9 +59,12 @@ export default function QuizComponent({ quiz, onCorrect }: QuizComponentProps) {
       </div>
       {answered && (
         <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          className={`mt-3 p-3 rounded-lg ${
+          initial={{ opacity: 0, maxHeight: 0 }}
+          animate={{ opacity: 1, maxHeight: 500 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          role="status"
+          aria-live="polite"
+          className={`mt-3 p-3 rounded-lg overflow-hidden ${
             selected === quiz.correct
               ? "bg-green-500/20 border-l-4 border-[var(--accent)]"
               : "bg-red-500/20 border-l-4 border-[var(--danger)]"

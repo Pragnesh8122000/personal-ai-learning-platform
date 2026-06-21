@@ -113,7 +113,7 @@ export default function Dashboard({ gamification, progress, onNavigate }: Dashbo
         <h2 className="text-xl font-bold mb-3">🎯 What&apos;s Next?</h2>
         {nextTopic ? (
           <motion.button
-            whileHover={{ scale: 1.02, x: 5 }}
+            whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => onNavigate(nextTopic.id)}
             className="w-full flex items-center gap-4 p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] card-glow"

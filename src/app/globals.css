@@ -10,6 +10,11 @@
   --accent: #2ccca0;
   --warn: #f59e0b;
   --danger: #ef4444;
+  --purple: #8b5cf6;
+  --text-muted: #64748b;
+  --primary-soft: rgba(91, 141, 239, 0.12);
+  --primary-soft-strong: rgba(91, 141, 239, 0.20);
+  --accent-soft: rgba(44, 204, 160, 0.12);
 }
 
 @theme inline {
@@ -30,6 +35,11 @@
     --accent: #2ccca0;
     --warn: #f59e0b;
     --danger: #ef4444;
+    --purple: #8b5cf6;
+    --text-muted: #94a3b8;
+    --primary-soft: rgba(91, 141, 239, 0.18);
+    --primary-soft-strong: rgba(91, 141, 239, 0.28);
+    --accent-soft: rgba(44, 204, 160, 0.18);
   }
 }
 
@@ -77,14 +87,10 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Card glow effect */
+/* Card glow effect — hover behavior is gated to fine pointers in the
+   prefers-reduced-motion / hover media queries below. */
 .card-glow {
   transition: all 0.3s ease;
-}
-
-.card-glow:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 30px rgba(91, 141, 239, 0.15);
 }
 
 /* Floating animation */
@@ -380,4 +386,98 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 .svg-illustration svg text {
   font-family: var(--font-sans);
+}
+
+/* Focus-visible ring for keyboard users. The default Tailwind preflight
+   removes outlines; this restores a visible ring for keyboard nav while
+   leaving mouse users unaffected. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Card-glow hover effect should only apply to fine pointers (mouse).
+   On touch, the tap fires hover state mid-gesture and causes mis-taps. */
+@media (hover: hover) {
+  .card-glow:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 30px rgba(91, 141, 239, 0.15);
+  }
+}
+
+@media (hover: none) {
+  .card-glow:active {
+    transform: translateY(-1px);
+  }
+}
+
+/* Respect prefers-reduced-motion: disable decorative loops and transitions.
+   Essential UI transitions (focus rings, modal open) stay on because they
+   signal state, not decoration. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-float,
+  .animate-pulse-glow,
+  .animate-flame,
+  .animate-shimmer,
+  .shimmer,
+  .progress-animated,
+  .quiz-option {
+    animation: none !important;
+  }
+
+  .card-glow:hover {
+    transform: none;
+  }
+
+  .flip-card-inner {
+    transition: none;
+  }
+}
+
+/* Final a11y + reduced-motion polish (Agent 7) */
+
+/* Make decorative motion.div elements invisible to screen readers by default;
+   the semantic parent should have its own aria-label that describes the state. */
+.motion-decoration[aria-hidden="true"] {
+  pointer-events: none;
+}
+
+/* Visible focus ring for all interactive elements when reached by keyboard nav.
+   Tailwind preflight removes outlines, so we add it back via :focus-visible. */
+button:focus-visible:not(:disabled),
+a:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Sticky header (or any sticky element) should respect safe-area insets on iOS */
+.sticky-safe-top {
+  top: max(0, env(safe-area-inset-top));
+}
+
+/* When reduced motion is preferred, kill all remaining decorative animations
+   that the existing block may have missed. This is a safety net. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse,
+  .animate-bounce,
+  .animate-spin {
+    animation: none !important;
+  }
+  .transition-transform,
+  .transition-all {
+    transition: none !important;
+  }
 }

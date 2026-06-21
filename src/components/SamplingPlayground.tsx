@@ -28,12 +28,19 @@ function mulberry32(seed: number): number {
  * - Temperature reshapes the distribution (higher = flatter).
  * - Top-p clips to the smallest set of tokens whose cumulative probability ≥ p.
  * Greyed-out tokens are excluded from the nucleus.
+ *
+ * Sliders update their visible value continuously while you drag, but the
+ * sampled token is only redrawn on release — otherwise we'd re-sample on every
+ * pixel of pointer movement.
  */
 export default function SamplingPlayground() {
   const [temperature, setTemperature] = useState(0.7);
   const [topP, setTopP] = useState(1.0);
-  // sampleSeed bumps whenever the user wants a fresh "draw" from the distribution.
+  // sampleSeed is bumped once per drag (on release) to redraw from the
+  // distribution. We deliberately don't bump it on every onChange tick.
   const [sampleSeed, setSampleSeed] = useState(0);
+
+  const commitSample = () => setSampleSeed((s) => s + 1);
 
   // Apply temperature scaling: prob^(1/T), then renormalize.
   const scaled = BASE_PROBS.map((p) => ({
@@ -101,9 +108,15 @@ export default function SamplingPlayground() {
           max="2"
           step="0.1"
           value={temperature}
-          onChange={(e) => {
-            setTemperature(parseFloat(e.target.value));
-            setSampleSeed((s) => s + 1);
+          onChange={(e) => setTemperature(parseFloat(e.target.value))}
+          onPointerUp={commitSample}
+          onMouseUp={commitSample}
+          onTouchEnd={commitSample}
+          onKeyUp={(e) => {
+            // Keyboard-driven slider — commit when the user releases a key.
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "Home" || e.key === "End") {
+              commitSample();
+            }
           }}
           className="w-full"
         />
@@ -121,13 +134,19 @@ export default function SamplingPlayground() {
           max="1"
           step="0.05"
           value={topP}
-          onChange={(e) => {
-            setTopP(parseFloat(e.target.value));
-            setSampleSeed((s) => s + 1);
+          onChange={(e) => setTopP(parseFloat(e.target.value))}
+          onPointerUp={commitSample}
+          onMouseUp={commitSample}
+          onTouchEnd={commitSample}
+          onKeyUp={(e) => {
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "Home" || e.key === "End") {
+              commitSample();
+            }
           }}
           className="w-full"
         />
         <p className="text-xs text-[var(--text-muted)] mt-1">
+          (sampling on release) ·{" "}
           {nucleus.length === 0
             ? "Nucleus is empty"
             : `Nucleus contains ${nucleus.length} token${nucleus.length === 1 ? "" : "s"}`}

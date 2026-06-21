@@ -20,6 +20,7 @@ export default function VideoCard({ video }: { video: VideoContent }) {
       rel="noopener noreferrer"
       whileHover={{ scale: 1.02, y: -2 }}
       whileTap={{ scale: 0.98 }}
+      aria-label={`Play video: ${video.title}`}
       className="my-6 block rounded-xl overflow-hidden glass border border-[var(--border)] card-glow group"
     >
       <div className="relative aspect-video bg-[var(--surface-2)]">
@@ -35,10 +36,11 @@ export default function VideoCard({ video }: { video: VideoContent }) {
           unoptimized
         />
         {/* Play overlay */}
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/50 transition-colors">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/50 group-focus-within:bg-black/50 transition-colors">
           <motion.div
             whileHover={{ scale: 1.15 }}
-            className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center shadow-lg"
+            aria-hidden="true"
+            className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity"
           >
             <span className="text-white text-2xl ml-1">▶</span>
           </motion.div>

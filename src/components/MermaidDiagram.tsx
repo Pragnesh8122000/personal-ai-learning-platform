@@ -5,13 +5,15 @@ import { useEffect, useId, useRef, useState } from "react";
 interface MermaidDiagramProps {
   chart: string;
   id?: string;
+  /** Accessible label for the rendered SVG. Defaults to "Diagram". */
+  ariaLabel?: string;
 }
 
 /**
  * Renders a Mermaid diagram source into an SVG.
  * Lazy-loads mermaid on first render to keep initial bundle small.
  */
-export default function MermaidDiagram({ chart, id }: MermaidDiagramProps) {
+export default function MermaidDiagram({ chart, id, ariaLabel = "Diagram" }: MermaidDiagramProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
   // useId is stable across renders and pure (no Math.random in render).
@@ -49,6 +51,16 @@ export default function MermaidDiagram({ chart, id }: MermaidDiagramProps) {
         const { svg } = await mermaid.render(diagramId, chart.trim());
         if (cancelled || !containerRef.current) return;
         containerRef.current.innerHTML = svg;
+
+        // Mermaid renders a bare <svg> root. Tag it for assistive tech so the
+        // diagram is announced as a single labelled image instead of a tangle
+        // of inner shapes.
+        const root = containerRef.current.querySelector("svg");
+        if (root) {
+          root.setAttribute("role", "img");
+          root.setAttribute("aria-label", ariaLabel);
+          root.setAttribute("focusable", "false");
+        }
       } catch (e) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : "Failed to render diagram");
@@ -60,7 +72,7 @@ export default function MermaidDiagram({ chart, id }: MermaidDiagramProps) {
     return () => {
       cancelled = true;
     };
-  }, [chart, diagramId]);
+  }, [chart, diagramId, ariaLabel]);
 
   if (error) {
     return (

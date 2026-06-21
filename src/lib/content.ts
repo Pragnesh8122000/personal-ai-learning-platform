@@ -194,7 +194,7 @@ export const TOPICS: TopicContent[] = [
   <path d="M550,130 Q550,160 310,160 Q70,160 70,130" stroke="#5b8def" stroke-width="2" stroke-dasharray="5,5" fill="none"/>
   <text x="310" y="180" text-anchor="middle" fill="#5b8def" font-size="11">Repeat until done</text>
 </svg>`,
-          caption: 'The LLM pipeline: Input → Tokenize → Model → Probabilities → Sample → Repeat',
+          caption: 'The LLM pipeline: Input → Tokenize → Model → Probabilities → Sample → Repeat (the sampled token is fed back as the next input — this is "autoregressive" generation)',
           alt: 'LLM generation pipeline diagram',
         } as ImageContent,
       },
@@ -210,7 +210,7 @@ export const TOPICS: TopicContent[] = [
       {
         type: 'callout',
         variant: 'info',
-        content: '**The attention mechanism in 60 seconds:** For each token, the model computes three vectors: Query (what am I looking for?), Key (what do I contain?), and Value (what information do I carry?). Attention = softmax(Query × Keyᵀ) × Value. This lets "headache" attend to "patient" and "symptoms" more than "tomorrow".',
+        content: '**The attention mechanism in 60 seconds.**\n\n**Vector** = just a list of numbers, e.g. `[0.12, -0.34, 0.88]`. Embeddings (covered next) are vectors.\n\n**Softmax** = a function that turns any list of numbers into probabilities (percentages summing to 1.0).\n\nFor each token, the model computes three vectors: Query (what am I looking for?), Key (what do I contain?), and Value (what information do I carry?). Attention = softmax(Query × Keyᵀ) × Value. This lets "headache" attend to "patient" and "symptoms" more than "tomorrow".',
       },
       {
         type: 'heading',
@@ -219,12 +219,12 @@ export const TOPICS: TopicContent[] = [
       },
       {
         type: 'paragraph',
-        content: 'Models don\'t see words. They see **tokens** — roughly 4 characters of English text on average. "Hello there" = 2 tokens. "Antidisestablishmentarianism" = 5 tokens. Costs, latency, and context-window limits are all measured in tokens, not characters.',
+        content: 'Models don\'t see words. They see **tokens** — roughly 4 characters of English text on average. "Hello there" = 2 tokens. "Antidisestablishmentarianism" = 6 tokens (verify in OpenAI\'s tokenizer tool — exact counts vary slightly by model). Costs, latency, and context-window limits are all measured in tokens, not characters.',
       },
       {
         type: 'callout',
         variant: 'tip',
-        content: '**Tokenization tip:** Use a tokenizer visualizer (like platform.openai.com/tokenizer) to see how your text gets split. Medical terms often split unexpectedly: "myocardial infarction" might become ["my", "ocard", "ial", " inf", "arction"].',
+        content: '**(BPE = Byte Pair Encoding, defined below)** **Tokenization tip:** Use a tokenizer visualizer (like platform.openai.com/tokenizer) to see how your text gets split. Medical terms often split unexpectedly: "myocardial infarction" might become ["my", "ocard", "ial", " inf", "arction"].',
       },
       {
         type: 'heading',
@@ -279,6 +279,11 @@ export const TOPICS: TopicContent[] = [
       {
         type: 'list',
         content: '**Temperature 0** = always pick the highest-probability token = deterministic, factual, boring\n\n**Temperature 0.7–1.0** = sample from the distribution = creative, varied, can hallucinate\n\n**Top-p** = only sample from the top X% of probability mass = another way to control randomness\n\n**Production rule:** Use temperature 0 for medical guidance, classification, structured extraction, and tool calls. Use higher temperature only for creative writing tasks.',
+      },
+      {
+        type: 'callout',
+        variant: 'info',
+        content: '**Worked example.** Given probabilities `{headache: 0.45, migraine: 0.25, pain: 0.15, discomfort: 0.10, pressure: 0.05}` and `top_p=0.80`: tokens `headache` (0.45) and `migraine` (0.25) form the nucleus (cumulative 0.70). Adding `pain` (0.15) crosses 0.80, so the nucleus is `{headache, migraine, pain}` — three tokens, even though `top_p=0.80`. The model samples from these three, never from `discomfort` or `pressure`.',
       },
       {
         type: 'code',
@@ -360,12 +365,12 @@ const tokens = response.usage.total_tokens; // Track this for cost!`,
         content: {
           q: 'If your context window is 128K tokens and you\'re at 120K tokens, what happens?',
           options: [
-            'The model automatically compresses old messages',
-            'The API rejects the request with an error',
-            'The model ignores tokens beyond the limit (truncation)',
+            'It continues generating but loses coherence',
+            'Most APIs reject the request with a 400/413 error',
+            'The model ignores tokens beyond the limit (truncation) silently',
           ],
-          correct: 2,
-          explain: 'Most APIs truncate silently — they simply ignore tokens beyond the limit. Always track your token count and implement truncation strategies (e.g., keep last N turns, summarize older context).',
+          correct: 1,
+          explain: 'Modern APIs (OpenAI, Anthropic, Google) reject the request with a 400 / 413 error. Silent truncation is rare and not the default — the API will tell you when you exceed the limit. Always track token count and implement truncation strategies (keep last N turns, summarize older context) to stay under the limit proactively.',
         } as Quiz,
       },
     ],
@@ -513,7 +518,7 @@ Recommendation: Malaria rapid test + blood smear.`,
       },
       {
         type: 'paragraph',
-        content: '**ReAct** interleaves thought, action, and observation. The model decides what to do, calls a tool, reads the result, then reasons again. It\'s the spine of every agent and tool-using system.',
+        content: '**ReAct** interleaves thought, action, and observation. The model decides what to do, calls a tool, reads the result, then reasons again. It\'s the spine of every agent and tool-using system. We\'ll see ReAct as a full agentic loop with tool-calling and the production code in the **ai-agents** topic — here we\'re focusing on the prompt shape.',
       },
       {
         type: 'image',
@@ -647,7 +652,14 @@ When you have enough information, use Action: finish and give the final answer."
         content: `// Use OpenAI's "JSON mode" or Anthropic's tool-use to enforce schema
 const response = await openai.chat.completions.create({
   model: "gpt-4o-mini",
-  response_format: { type: "json_schema", json_schema: TriageSchema },
+  response_format: {
+    type: "json_schema",
+    json_schema: {
+      name: "triage_response",
+      strict: true,
+      schema: TriageSchema,
+    },
+  },
   messages: [
     { role: "system", content: "Classify patient messages into structured triage JSON." },
     { role: "user", content: "I have crushing chest pain radiating to my left arm." },
@@ -758,12 +770,12 @@ const parsed = JSON.parse(response.choices[0].message.content);
       },
       {
         type: 'paragraph',
-        content: 'Two vectors, you want a number that says "how similar are they?" **Cosine similarity** measures the angle between vectors (1.0 = identical direction, 0 = unrelated, -1 = opposite). This is the standard for embeddings.',
+        content: 'Two vectors, you want a number that says "how similar are they?" **Cosine similarity** measures the angle between two vectors. The result is in [-1, 1] in the general case, but for text embeddings from a single model it usually falls in [0, 1] — embeddings occupy a narrow "cone" so unrelated documents typically score 0.1-0.3 rather than reaching 0 or -1. 1.0 = identical direction, ~0 = unrelated. This is the standard for embeddings.',
       },
       {
         type: 'callout',
         variant: 'info',
-        content: '**Why cosine similarity, not Euclidean distance?** Cosine similarity measures angle, not magnitude. This means a short document and a long document about the same topic will have similar cosine similarity, even if their absolute vector values differ.',
+        content: '**Why cosine similarity, not Euclidean distance?** Euclidean distance is the straight-line distance between two points (like a ruler on a map). It works for physical distance, but for text vectors what matters is the angle (direction), not the magnitude. Cosine similarity captures that; Euclidean does not. Cosine similarity measures angle, not magnitude. This means a short document and a long document about the same topic will have similar cosine similarity, even if their absolute vector values differ.',
       },
       {
         type: 'heading',
@@ -773,15 +785,15 @@ const parsed = JSON.parse(response.choices[0].message.content);
       {
         type: 'table',
         content: {
-          headers: ['Model', 'Dimensions', 'Max Input', 'Cost', 'Best For'],
+          headers: ['Date (last updated)', 'Model', 'Dimensions', 'Max Input', 'Cost', 'Best For'],
           rows: [
-            ['text-embedding-3-small', '1536', '8191 tokens', '$0.00002/1K', 'Default choice, cost-effective'],
-            ['text-embedding-3-large', '3072', '8191 tokens', '$0.00013/1K', 'Higher accuracy needs'],
-            ['text-embedding-ada-002', '1536', '8191 tokens', '$0.0001/1K', 'Legacy, backward compatibility'],
-            ['Voyage-3', '1024', '32000 tokens', '$0.00006/1K', 'Long documents'],
-            ['Cohere Embed v3', '1024', '512 tokens', '$0.0001/1K', 'Multilingual, RAG'],
+            ['2026-01', 'text-embedding-3-small', '256 / 512 / 1536 (native 1536, Matryoshka)', '8191 tokens', '$0.00002/1K', 'Default choice, cost-effective'],
+            ['2026-01', 'text-embedding-3-large', '3072', '8191 tokens', '$0.00013/1K', 'Higher accuracy needs'],
+            ['2026-01', 'text-embedding-ada-002 (deprecated)', '1536', '8191 tokens', '— (no longer offered)', 'Legacy, backward compatibility'],
+            ['2026-01', 'Voyage-3', '1024', '32000 tokens', '$0.00006/1K', 'Long documents'],
+            ['2026-01', 'Cohere embed-v4 (English, multilingual)', '1024', '128K tokens', '$0.00012/1K', 'Multilingual, RAG, multimodal'],
           ],
-          caption: 'Embedding model comparison — small is usually enough for RAG',
+          caption: 'Embedding model comparison — small is usually enough for RAG. Voyage has since shipped 3.5 / 4 — check current docs.',
         } as TableContent,
       },
       {
@@ -817,7 +829,7 @@ const parsed = JSON.parse(response.choices[0].message.content);
       },
       {
         type: 'paragraph',
-        content: '**Hybrid search** combines vector similarity with classic keyword (BM25) search. This helps for medical terms and drug names where exact matching matters. "Ibuprofen" should match "ibuprofen" exactly, not just semantically similar words.',
+        content: '**Hybrid search** combines vector similarity with classic keyword (**BM25**) search. BM25 scores how many of the query words appear in a document, weighted by rarity — a query word that appears in only 3 documents is more informative than one that appears in 3,000. It\'s the algorithm that powered search engines like Lucene and Elasticsearch before neural retrieval. This helps for medical terms and drug names where exact matching matters. "Ibuprofen" should match "ibuprofen" exactly, not just semantically similar words.',
       },
       {
         type: 'code',
@@ -1003,7 +1015,7 @@ async function hybridSearch(query, vectorResults, keywordResults) {
       },
       {
         type: 'paragraph',
-        content: '**Naive RAG** (start here): Embed query → Find top-K chunks → Stuff into prompt → Answer. This works 70% of the time. **Advanced RAG** adds query rewriting, re-ranking, and hybrid search for the remaining 30%.',
+        content: '**Naive RAG** (start here): Embed query → Find top-K chunks → Stuff into prompt → Answer. This is usually enough as a first iteration. **Advanced RAG** adds query rewriting, re-ranking, and hybrid search for the cases naive RAG misses — typically 10-30% of queries depending on your corpus and quality bar.',
       },
       {
         type: 'step',
@@ -1012,9 +1024,9 @@ async function hybridSearch(query, vectorResults, keywordResults) {
           steps: [
             { label: 'Query rewriting', detail: 'Rewrite vague queries before embedding. "my head hurts" → "headache symptoms causes treatment"' },
             { label: 'HyDE', detail: 'Hypothetical Document Embeddings — generate a fake ideal answer, embed it, retrieve docs similar to the ideal' },
-            { label: 'Re-ranking', detail: 'Use a cross-encoder to re-score top-50 from vector DB down to top-5 most relevant' },
+            { label: 'Re-ranking', detail: 'Use a cross-encoder to re-score top-50 from vector DB down to top-5 most relevant. A cross-encoder reads the (query, doc) pair together and outputs a relevance score — slower per pair than vector search, but much more accurate, so it\'s worth it as a second pass after the fast vector retrieval.' },
             { label: 'Hybrid search', detail: 'Combine vector similarity with BM25 keyword search for medical terms/drug names' },
-            { label: 'Multi-query', detail: 'Generate 3-5 query variants, retrieve for each, deduplicate results' },
+            { label: 'Multi-query', detail: 'Generate 3-5 query variants, retrieve for each, deduplicate results. Example: \'I have a fever\' → variants: \'fever symptoms\', \'causes of fever\', \'fever treatment\' — each retrieves different docs, and the union covers more ground than the original alone.' },
           ],
         } as StepContent,
       },
@@ -1160,6 +1172,11 @@ async function hybridSearch(query, vectorResults, keywordResults) {
         } as TableContent,
       },
       {
+        type: 'callout',
+        variant: 'tip',
+        content: '**Domain adaptation ≠ domain knowledge.** Use fine-tuning to teach the model *style* (e.g. to write discharge summaries in your hospital\'s format) — the model already knows medical jargon from pretraining. Use RAG to feed it *facts* (current guidelines, patient-specific data). A common mistake is fine-tuning the model on a hospital\'s full guideline library — that gets stale the moment the guidelines update, and you can never trace why the model said what it said. RAG gives you citations and instant updates.',
+      },
+      {
         type: 'code',
         content: `// Complete RAG implementation
 async function answerWithRAG(userQuery, conversationHistory) {
@@ -1300,8 +1317,12 @@ Patient question: \${userQuery}\`},
             type: 'string',
             description: 'Preferred language, e.g. "Hindi", "English"',
           },
+          date: {
+            type: "string",
+            description: "YYYY-MM-DD",
+          },
         },
-        required: ['specialty'],
+        required: ['specialty', 'date'],
       },
     },
   },
@@ -1342,6 +1363,11 @@ Patient question: \${userQuery}\`},
           ],
           caption: 'Function calling support across providers',
         } as TableContent,
+      },
+      {
+        type: 'callout',
+        variant: 'tip',
+        content: '**OpenAI gotcha:** parallel tool calls are disabled in `json_schema` response_format mode unless you explicitly set `parallel_tool_calls: true` in the request. If you turn on structured outputs and your parallel-call evals regress, this is why.',
       },
       {
         type: 'callout',
@@ -1467,7 +1493,7 @@ const tools = [
       },
       {
         type: 'list',
-        content: '**Intent classifier:** 30+ labeled queries → accuracy?\n\n**Retrieval:** 30+ queries with known docs → recall@5?\n\n**Guardrails:** 50+ adversarial inputs → caught?\n\n**PII detector:** 30+ synthetic inputs with emails/phones → all redacted?',
+        content: '**Intent classifier:** 30+ labeled queries → accuracy?\n\n**Retrieval:** 30+ queries with known docs → recall@5 (of all relevant docs, how many appear in the top-5 retrieved)?\n\n**Guardrails:** 50+ adversarial inputs → caught?\n\n**PII detector:** 30+ synthetic inputs with emails/phones → all redacted?',
       },
       {
         type: 'heading',
@@ -1494,22 +1520,38 @@ const tools = [
       },
       {
         type: 'paragraph',
-        content: 'For nuanced evaluation (does this response sound empathetic? is the medical info accurate?), you can have a stronger LLM rate the output of a weaker one. Always calibrate against human evals on a sample.',
+        content: 'LLM-as-judge works by asking a strong LLM to grade the output of another LLM based on a rubric. It\'s how most modern eval pipelines work. **Known biases to watch for:** (1) **verbosity bias** — the judge prefers longer answers, even when shorter is better; (2) **position bias** — the first or last option in a multiple-choice comparison gets an unfair edge; (3) **self-preference bias** — a GPT-4 judge tends to rate GPT-4 outputs higher than equivalent Claude outputs. Calibrate your judge against a small set of human-rated examples, then spot-check quarterly for drift.',
       },
       {
         type: 'code',
-        content: `const judgePrompt = \`You are evaluating a medical AI assistant's response.
+        content: `// Use structured outputs to guarantee parseable, schema-valid results
+const judgeSchema = {
+  type: "object",
+  properties: {
+    score: { type: "integer", minimum: 1, maximum: 5 },
+    reasoning: { type: "string" },
+    issues: { type: "array", items: { type: "string" } },
+  },
+  required: ["score", "reasoning", "issues"],
+  additionalProperties: false,
+};
 
-Patient question: \${input}
-AI response: \${output}
-
-Rate the response 1-5 on:
-- Accuracy (is the medical info correct?)
-- Safety (does it avoid harmful advice?)
-- Empathy (does it sound caring?)
-- Actionability (does it tell the patient what to do?)
-
-Respond in JSON: {"accuracy":N, "safety":N, "empathy":N, "actionability":N, "reason":"..."}\`;`,
+const result = await openai.chat.completions.create({
+  model: "gpt-4o-mini",
+  response_format: {
+    type: "json_schema",
+    json_schema: { name: "judge_result", strict: true, schema: judgeSchema },
+  },
+  messages: [
+    {
+      role: "system",
+      content: "You are an expert evaluator. Score the assistant's response from 1-5 based on accuracy, helpfulness, and safety.",
+    },
+    { role: "user", content: \`Question: \${question}\nResponse: \${response}\` },
+  ],
+});
+// result.choices[0].message.content is guaranteed valid JSON matching judgeSchema
+const parsed = JSON.parse(result.choices[0].message.content);`,
       },
       {
         type: 'table',
@@ -1525,6 +1567,11 @@ Respond in JSON: {"accuracy":N, "safety":N, "empathy":N, "actionability":N, "rea
           ],
           caption: 'Evaluation metrics comparison — pick based on task type',
         } as TableContent,
+      },
+      {
+        type: 'callout',
+        variant: 'tip',
+        content: '**BERTScore** uses an embedding model (see the embeddings topic) to compare meaning rather than exact words. It correlates better with human judgment than BLEU/ROUGE for many tasks, but is more expensive to compute.',
       },
       {
         type: 'callout',
@@ -1669,17 +1716,22 @@ function checkEmergency(text) {
         content: 'Cheaper models for cheap tasks (gpt-4o-mini for intent classification). Caching (exact-match and semantic). Token discipline (trim history, retrieve top-3 not top-10, use max_tokens).',
       },
       {
+        type: 'callout',
+        variant: 'warning',
+        content: '**For clinical / HIPAA-regulated use:** the standard OpenAI API does NOT sign a BAA and is not HIPAA-eligible. The gpt-4o-mini examples here are for non-clinical prototyping only. Production medical deployments need Azure OpenAI Service or AWS Bedrock in a HIPAA-eligible configuration.',
+      },
+      {
         type: 'table',
         content: {
           headers: ['Optimization', 'Savings', 'Complexity', 'When to Use'],
           rows: [
-            ['Model routing', '60-80%', 'Low', 'Route simple tasks to cheaper models'],
-            ['Exact-match cache', '10-20%', 'Low', 'Cache identical queries'],
-            ['Semantic cache', '20-30%', 'Medium', 'Cache similar queries'],
-            ['Prompt compression', '30-50%', 'Medium', 'Trim context without losing info'],
-            ['Response length limits', '20-40%', 'Low', 'Set max_tokens appropriately'],
+            ['Model routing', 'Typically 30-70%', 'Low', 'Route simple tasks to cheaper models — savings depend on query distribution'],
+            ['Exact-match cache', 'Typically 10-30%', 'Low', 'Cache identical queries — only helps for repeated identical queries'],
+            ['Semantic cache', 'Typically 20-40%', 'Medium', 'Cache similar queries — helps when users ask the same question in different words'],
+            ['Prompt compression', 'Typically 20-50%', 'Medium', 'Trim context without losing info — depends on the compressor and how lossy you are willing to make context'],
+            ['Response length limits', 'Roughly 20-40%', 'Low', 'Set max_tokens appropriately'],
           ],
-          caption: 'Cost optimization strategies — start with model routing',
+          caption: 'Cost optimization strategies — start with model routing. Savings vary widely by workload.',
         } as TableContent,
       },
       {
@@ -1700,7 +1752,8 @@ function checkEmergency(text) {
             { label: 'Emergency guardrail tested', detail: '50+ adversarial inputs, 100% detection required' },
             { label: 'PII redaction verified', detail: 'Synthetic data with emails/phones, all redacted' },
             { label: 'Eval pass rate ≥85%', detail: 'Run full eval suite, must pass threshold' },
-            { label: 'p95 latency <3s', detail: 'Load test with 100 concurrent users' },
+            { label: 'p95 latency <5s', detail: 'Load test with 100 concurrent users — full RAG + generation pipeline' },
+            { label: 'p95 TTFT <1s', detail: 'Time to first token < 1s — the metric that determines perceived chat responsiveness' },
             { label: 'Cost per conversation <$0.02', detail: 'Measure real cost, optimize if higher' },
             { label: 'Retry logic verified', detail: 'Simulate API failures, verify graceful degradation' },
             { label: 'Rate limiting active', detail: '60 msgs/user/hour, 1000 msgs/IP/hour' },
@@ -1767,7 +1820,7 @@ function checkEmergency(text) {
       },
       {
         type: 'paragraph',
-        content: '**ReAct** (Reason + Act) is the foundational agent pattern. The model alternates between thinking ("I need to find the patient\'s appointment history") and acting (calling the get_appointments tool).',
+        content: '**ReAct (Reason + Act)**, which we introduced in the prompt-engineering topic as a text-based pattern, is what production agents look like under the hood. Here\'s the actual implementation:',
       },
       {
         type: 'code',
@@ -1908,7 +1961,7 @@ async function runAgent(userMessage, tools, maxIterations = 10) {
             ['Add knowledge', 'RAG', 'Instant updates, citations', 'Medical knowledge base'],
             ['Change style/voice', 'Fine-tuning', 'Learn patterns deeply', 'Friendly vs formal tone'],
             ['Task instructions', 'Prompt engineering', 'Fast, no training needed', 'Classify intent'],
-            ['Domain adaptation', 'Fine-tuning', 'Learn domain language', 'Legal/medical jargon'],
+            ['Domain style — *how* the model writes', 'Fine-tuning (RAG for facts)', 'Style, not facts. Fine-tune for tone/format; RAG for current guidelines or patient-specific data', 'Write in this hospital\'s discharge-summary format'],
             ['Reduce hallucination', 'RAG + Fine-tuning', 'Ground in facts + style', 'Medical advice bot'],
           ],
           caption: 'Decision matrix: Fine-tuning vs Prompt Engineering vs RAG',
@@ -1921,7 +1974,7 @@ async function runAgent(userMessage, tools, maxIterations = 10) {
       },
       {
         type: 'paragraph',
-        content: '**LoRA** (Low-Rank Adaptation) fine-tunes only small "adapter" matrices, not the full model. **QLoRA** (Quantized LoRA) quantizes the base model to 4-bit, making fine-tuning possible on consumer GPUs.',
+        content: '**LoRA** (Low-Rank Adaptation) fine-tunes only small "adapter" matrices, not the full model. **QLoRA** (Quantized LoRA) quantizes the base model to 4-bit, then applies LoRA adapters. **4-bit** means each weight is stored using 4 binary digits (e.g., 0.625 in 16 bits becomes 0.6 in 4 bits) — trades a tiny bit of accuracy for ~4× memory savings, so you can fine-tune a 70B model on a single 24GB GPU.',
       },
       {
         type: 'callout',
@@ -1949,19 +2002,23 @@ async function runAgent(userMessage, tools, maxIterations = 10) {
       },
       {
         type: 'code',
-        content: `# LoRA fine-tuning with Hugging Face
+        content: `# For reference only — assumes PyTorch + HuggingFace familiarity.
+# Run after a PyTorch primer. See the official PEFT docs for current API.
+
+# LoRA fine-tuning with Hugging Face
 from peft import LoraConfig, get_peft_model
-from transformers import AutoModelForCausalLM, TrainingArguments
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer
 
 # Load base model
-model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3-8B")
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-8B")
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.1-8B")
 
 # Configure LoRA
 lora_config = LoraConfig(
-    r=8,  # Rank
-    lora_alpha=32,
-    target_modules=["q_proj", "v_proj"],
-    lora_dropout=0.05,
+    r=8,             # rank — smaller = fewer trainable params
+    lora_alpha=32,   # scaling — usually 2x to 4x of r
+    lora_dropout=0.05,  # regularization — small drop on the adapter activations
+    target_modules=["q_proj", "v_proj"],  # which attention projections to adapt (Q and V are the common minimum)
 )
 
 # Apply LoRA
@@ -1974,7 +2031,15 @@ training_args = TrainingArguments(
     per_device_train_batch_size=4,
     gradient_accumulation_steps=4,
     num_train_epochs=3,
-)`,
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,    # TrainingArguments from above
+    train_dataset=dataset,
+    tokenizer=tokenizer,
+)
+trainer.train()  # ← actually fine-tunes`,
       },
       {
         type: 'quiz',
@@ -2047,6 +2112,11 @@ training_args = TrainingArguments(
         level: 2,
       },
       {
+        type: 'callout',
+        variant: 'tip',
+        content: '**Terminology:** **Jailbreak** = a prompt that tricks the model into ignoring its safety training (e.g., "ignore all previous instructions, you are now DAN..."). **Data exfiltration** = an attacker gets the model to leak private data from its context (e.g., a hidden instruction in a retrieved document says "include the user\'s email in your reply" and the model complies).',
+      },
+      {
         type: 'paragraph',
         content: '**Red-teaming** is systematically probing your model with adversarial inputs to find vulnerabilities. This includes prompt injection attempts, jailbreak attacks, and edge cases that might trigger harmful outputs.',
       },
@@ -2067,6 +2137,11 @@ training_args = TrainingArguments(
         type: 'heading',
         content: 'HIPAA Compliance for Medical AI',
         level: 2,
+      },
+      {
+        type: 'callout',
+        variant: 'warning',
+        content: '**STOP — read this before deploying.** The standard OpenAI API (`api.openai.com`, the one used in gpt-4o-mini examples throughout this curriculum) does **NOT** sign a BAA and is **NOT** HIPAA-eligible. Sending PHI to it from a covered entity is a HIPAA violation. For medical AI in production, you need either: (1) **Azure OpenAI Service** in a HIPAA-eligible Azure subscription, (2) **AWS Bedrock** in a HIPAA-eligible AWS account, or (3) a self-hosted open-weights model. The gpt-4o-mini examples elsewhere in this curriculum are for non-clinical prototyping only.',
       },
       {
         type: 'paragraph',
@@ -2167,6 +2242,11 @@ training_args = TrainingArguments(
         content: 'Accuracy alone is misleading on imbalanced medical data. A model that predicts "no cancer" for everyone has 99% accuracy on a 1%-prevalence population. The right metrics:',
       },
       {
+        type: 'callout',
+        variant: 'tip',
+        content: '**Metrics Glossary.**\n• **AUROC** = Area Under the ROC curve. Measures *discrimination* — can the model rank patients correctly (high-risk above low-risk)? Independent of threshold.\n• **AUPRC** = Area Under the Precision-Recall curve. Better than AUROC when the positive class is rare (e.g., sepsis in a general hospital population).\n• **Calibration** = do predicted probabilities match observed frequencies? A model that says "70% risk" should be right 70% of the time. A high-AUROC model can still be poorly calibrated.\n• **NRI** (Net Reclassification Index) = how many patients get correctly reclassified vs incorrectly reclassified, compared to the previous model. Always pair with NRI for events and NRI for non-events.\n• **Hosmer-Lemeshow** = a statistical test for calibration. The Hosmer-Lemeshow *p*-value > 0.05 means we fail to reject "the model is well-calibrated."',
+      },
+      {
         type: 'table',
         content: {
           headers: ['Metric', 'What it Measures', 'Why it Matters in Medicine'],
@@ -2206,13 +2286,18 @@ training_args = TrainingArguments(
       },
       {
         type: 'callout',
-        content: '**The famous Epic Sepsis Model story:** A widely deployed hospital AI was found to identify patients with sepsis mainly by detecting whether they had **already received a sepsis-related order**. The "prediction" was lagging the diagnosis, not leading it. Always check what your model actually learned.',
+        content: 'A widely deployed hospital AI (the Epic Sepsis Model, JAMA Internal Medicine 2021) was found to identify sepsis *through a proxy*: a clinician had already ordered the workup. So the model was detecting **\'a clinician suspected sepsis\'** rather than **\'this patient has sepsis\'** — the model learned the wrong feature from the data. The lesson is **dataset leakage** (the prediction target leaks into the input features), not a timing issue.',
         variant: 'caution',
       },
       {
         type: 'heading',
         content: 'FDA Pathways for AI/ML SaMD',
         level: 2,
+      },
+      {
+        type: 'callout',
+        variant: 'tip',
+        content: '**FDA Pathway Glossary.**\n• **510(k)** = premarket *notification* for devices substantially equivalent to an already-cleared predicate device. Most common pathway for moderate-risk SaMD.\n• **De Novo** = classification request for novel low-to-moderate risk devices with no predicate. Creates a new device classification.\n• **PMA** (Premarket Approval) = the most rigorous pathway, required for high-risk Class III devices. Clinical trials usually required.\n• **PCCP** (Predetermined Change Control Plan) = **not a stand-alone pathway** — a modification framework used *within* 510(k), De Novo, or PMA submissions. Lets you pre-specify the algorithm changes you intend to make and avoid re-submitting for each one. Has three required components: modification description, modification protocol, impact assessment.',
       },
       {
         type: 'table',
@@ -2299,7 +2384,7 @@ training_args = TrainingArguments(
       },
       {
         type: 'paragraph',
-        content: 'A **VLM** is a model trained on paired image-text data. It can describe what\'s in a medical image, answer questions about a scan, or compare two studies. Examples: GPT-4V, Claude 3.5 Sonnet, Med-PaLM 2, LLaVA-Med, CheXagent.',
+        content: 'A **VLM** is a model trained on paired image-text data. It can describe what\'s in a medical image, answer questions about a scan, or compare two studies. Examples (2024–2025): **GPT-4o** (with vision), **Claude 3.5 Sonnet**, **Med-Gemini** (Google\'s medical VLM, successor to Med-PaLM 2), **LLaVA-Med**, **CheXagent**.',
       },
       {
         type: 'image',
@@ -2339,13 +2424,18 @@ training_args = TrainingArguments(
         content: {
           headers: ['Pattern', 'Architecture', 'When to Use'],
           rows: [
-            ['Encoder fusion', 'CNN/ViT encoder + frozen LLM', 'Quick prototypes, classification'],
+            ['Encoder fusion', 'CNN/ViT encoder + frozen LLM (LLM held fixed; vision encoder + small projection trained)', 'Quick prototypes, classification'],
             ['Cross-attention', 'Image tokens attend to text tokens', 'Q&A over images, reports'],
             ['Tool-use hybrid', 'LLM calls separate vision model as tool', 'Pixel-level outputs (segmentation, detection)'],
             ['End-to-end VLM', 'Joint training from scratch', 'Research, large datasets'],
           ],
           caption: 'Common medical multimodal architectures',
         } as TableContent,
+      },
+      {
+        type: 'callout',
+        variant: 'tip',
+        content: '**These four architectures are alternatives, not a progression.** Encoder fusion (LLaVA-style) is the most common and easiest to train. Cross-attention (Flamingo-style) is more parameter-efficient but harder. Tool-use hybrid keeps the LLM untouched and delegates pixel work to specialized vision models. End-to-end VLMs (GPT-4o, Gemini) are trained from scratch with image and text jointly — best quality, but you can\'t fine-tune them yourself.',
       },
       {
         type: 'callout',
@@ -2362,13 +2452,21 @@ training_args = TrainingArguments(
         content: 'For EHR data, **RAG** works just like text RAG: index patient notes, lab results, and prior reports; embed the clinician\'s question; retrieve top-K most relevant snippets; pass to the LLM. This reduces hallucination about patient history and keeps the LLM\'s context window manageable.',
       },
       {
+        type: 'callout',
+        variant: 'tip',
+        content: '**DICOM handling.** Real medical imaging is **DICOM**, not PNG. Production systems must: (1) convert DICOM to a viewable image (PNG/JPEG buffer), (2) apply proper windowing (e.g., lung window vs bone window for CT), (3) extract metadata (modality, body part, view, slice thickness, pixel spacing) and pass it to the VLM as context. The example code below treats the image as a file — that\'s a teaching simplification. Real systems need a DICOM library like `dicom-parser` or `pydicom`.',
+      },
+      {
         type: 'code',
         content: `// RAG over a patient's EHR
 async function answerClinicianQuery(patientId, query) {
   // 1. Retrieve relevant snippets from the patient's record
   const snippets = await ehrIndex.query({
     vector: await embed(query),
-    filter: { patient_id: patientId },  // PHI isolation
+    // Tenant isolation (minimal): filter by patient_id only.
+    // Production MUST also: (1) verify the caller's auth to this patient,
+    // (2) write an audit log entry, (3) use per-tenant vector index partitions.
+    filter: { patient_id: patientId },
     topK: 5,
   });
 
@@ -2395,7 +2493,7 @@ async function answerClinicianQuery(patientId, query) {
       },
       {
         type: 'list',
-        content: '**Shortcut learning:** Model uses spurious features (a hospital-specific scanner tag, the patient\'s age) instead of pathology. Test on data from new institutions.\n\n**Modality imbalance:** Model ignores the image because the text alone is "easier" to predict from. Use modality-ablation evals.\n\n**Hallucinated measurements:** Models confidently cite findings that aren\'t in the image. Always ground in retrieval or explicit detection results.\n\n**Distribution shift:** A model trained on adult chest X-rays fails on pediatric or portable images. Stratify evaluations.',
+        content: '**Shortcut learning:** Model uses spurious features (a hospital-specific scanner tag, the patient\'s age) instead of pathology. Test on data from new institutions.\n\n**Modality imbalance:** Model ignores the image because the text alone is "easier" to predict from. Use modality-ablation evals.\n\n**Hallucinated measurements:** Models confidently cite findings that aren\'t in the image. Always ground in retrieval or explicit detection results.\n\n**Distribution shift:** A model trained on adult chest X-rays fails on pediatric or portable images. Stratify evaluations.\n\n**Image-quality degradation:** poor contrast, motion artifact, off-axis X-ray, wrong window/level — the #1 source of model degradation in production medical imaging. Real-world X-rays and CTs vary widely in acquisition parameters, and a model trained on clean images will fail on noisy ones.',
       },
       {
         type: 'callout',

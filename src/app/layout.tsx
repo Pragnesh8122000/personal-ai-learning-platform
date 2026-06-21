@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -21,6 +21,16 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Vaidya Learn",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#5b8def" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b1020" },
+  ],
 };
 
 export default function RootLayout({

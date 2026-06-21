@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 import { FLASHCARDS, TOPICS } from "../lib/content";
 import type { Gamification, Progress } from "../lib/gamification";
@@ -13,6 +13,7 @@ import ConfettiTrigger from "../components/ConfettiTrigger";
 import Dashboard from "../components/Dashboard";
 import FlashcardDeck from "../components/FlashcardDeck";
 import Header from "../components/Header";
+import MobileNav from "../components/MobileNav";
 import Sidebar from "../components/Sidebar";
 import TopicContent from "../components/TopicContent";
 import XPFloat from "../components/XPFloat";
@@ -38,8 +39,10 @@ export default function Home() {
   const [triggerConfetti, setTriggerConfetti] = useState(false);
   const [flashcardIndex, setFlashcardIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   const playSound = useSound(soundEnabled);
+  const reduced = useReducedMotion();
 
   // Add XP, fire floating number and confetti on milestones.
   const addXP = useCallback(
@@ -114,6 +117,7 @@ export default function Home() {
   // Navigate to a route and reset transient UI state.
   const navigate = useCallback(
     (route: string) => {
+      setNavOpen(false);
       setCurrentRoute(route);
       setFlipped(false);
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -179,6 +183,18 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [currentRoute]);
 
+  // Escape closes the mobile nav drawer.
+  useEffect(() => {
+    if (!navOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setNavOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [navOpen]);
+
   // Flashcard navigation with wrap-around.
   const navigateFlashcard = useCallback((newIndex: number) => {
     setFlashcardIndex(((newIndex % FLASHCARDS.length) + FLASHCARDS.length) % FLASHCARDS.length);
@@ -235,8 +251,8 @@ export default function Home() {
 
   return (
     <div className={`min-h-screen ${darkMode ? "dark" : ""}`}>
-      <AnimatedBackground />
-      <ConfettiTrigger active={triggerConfetti} />
+      {!reduced && <AnimatedBackground />}
+      {!reduced && <ConfettiTrigger active={triggerConfetti} />}
 
       <Header
         gamification={gamification}
@@ -249,11 +265,19 @@ export default function Home() {
           playSound("click");
         }}
         onToggleTheme={() => setDarkMode(!darkMode)}
+        onOpenNav={() => setNavOpen(true)}
       />
 
       <Sidebar currentRoute={currentRoute} onNavigate={navigate} progress={progress} />
+      <MobileNav
+        open={navOpen}
+        onClose={() => setNavOpen(false)}
+        onNavigate={navigate}
+        currentRoute={currentRoute}
+        progress={progress}
+      />
 
-      <main className="pt-20 pb-8 lg:pl-72 min-h-screen">
+      <main className="pt-6 pb-8 lg:pt-8 lg:pl-72 min-h-screen">
         <motion.div
           key={currentRoute}
           initial={{ opacity: 0, y: 20 }}
