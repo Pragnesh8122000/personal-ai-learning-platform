@@ -9,8 +9,7 @@ interface FlashcardComponentProps {
 }
 
 /**
- * 3D flip card. Front = question, back = answer + hint.
- * Uses CSS perspective + rotateY for the flip animation.
+ * 3D flip card with the clinical palette. Front = question, back = answer + hint.
  */
 export default function FlashcardComponent({
   card,
@@ -18,9 +17,6 @@ export default function FlashcardComponent({
   onFlip,
 }: FlashcardComponentProps) {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    // The parent (page.tsx) already handles Space/Enter globally, but we still
-    // expose a local handler so the card itself is a properly-operable button
-    // when focused (e.g. screen reader users). Arrow keys are owned by the parent.
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       onFlip();
@@ -39,24 +35,24 @@ export default function FlashcardComponent({
     >
       <div className={`flip-card-inner relative w-full h-full ${isFlipped ? "flipped" : ""}`}>
         {/* Front */}
-        <div className="flip-card-front absolute inset-0 p-6 rounded-2xl bg-gradient-to-br from-[var(--primary-soft)] to-[var(--surface)] border-l-4 border-[var(--primary)] shadow-lg flex flex-col justify-center overflow-y-auto">
-          <span className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold mb-2">
+        <div className="flip-card-front absolute inset-0 p-6 rounded-xl bg-[var(--surface)] border border-[var(--border)] border-l-4 border-l-[var(--primary)] shadow-md flex flex-col justify-center overflow-y-auto">
+          <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-semibold mb-3">
             Question
           </span>
-          <p className="text-xl font-bold">{card.front}</p>
-          <span className="absolute bottom-3 right-4 text-xs text-[var(--text-muted)] opacity-70">
+          <p className="font-display text-2xl text-[var(--display)]">{card.front}</p>
+          <span className="absolute bottom-4 right-4 text-[11px] text-[var(--text-subtle)]">
             Tap or press Space to flip
           </span>
         </div>
 
         {/* Back */}
-        <div className="flip-card-back absolute inset-0 p-6 rounded-2xl bg-[var(--surface)] border-l-4 border-[var(--accent)] shadow-lg flex flex-col justify-center overflow-y-auto transform rotateY-180">
-          <span className="text-xs uppercase tracking-wider text-[var(--text-muted)] font-bold mb-2">
+        <div className="flip-card-back absolute inset-0 p-6 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] border-l-4 border-l-[var(--accent)] shadow-md flex flex-col justify-center overflow-y-auto transform rotateY-180">
+          <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-semibold mb-3">
             Answer
           </span>
-          <p className="text-lg">{card.back}</p>
+          <p className="text-lg leading-relaxed text-[var(--foreground)]">{card.back}</p>
           {card.hint && (
-            <p className="text-sm text-[var(--text-muted)] mt-2">
+            <p className="text-sm text-[var(--text-muted)] mt-3">
               💡 Hint: {card.hint}
             </p>
           )}

@@ -280,10 +280,10 @@ export default function Home() {
       <main className="pt-6 pb-8 lg:pt-8 lg:pl-72 min-h-screen">
         <motion.div
           key={currentRoute}
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
+          exit={{ opacity: 0, y: -12 }}
+          transition={{ duration: 0.25 }}
           className="px-4 lg:px-8"
         >
           {renderContent()}

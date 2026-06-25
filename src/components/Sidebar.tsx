@@ -17,9 +17,41 @@ interface SidebarContentProps {
 }
 
 /**
- * Inner nav content (progress card, quick access, topic list).
- * Rendered by both the desktop `Sidebar` and the mobile `MobileNav` drawer.
- * No positioning/fixed wrapper here — callers decide layout.
+ * Circular progress indicator.
+ */
+function ProgressRing({ percent }: { percent: number }) {
+  const radius = 18;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percent / 100) * circumference;
+
+  return (
+    <svg width="44" height="44" viewBox="0 0 44 44" className="rotate-[-90deg]">
+      <circle
+        cx="22"
+        cy="22"
+        r={radius}
+        fill="none"
+        stroke="var(--border)"
+        strokeWidth="4"
+      />
+      <circle
+        cx="22"
+        cy="22"
+        r={radius}
+        fill="none"
+        stroke="var(--accent)"
+        strokeWidth="4"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        style={{ transition: "stroke-dashoffset 0.8s ease" }}
+      />
+    </svg>
+  );
+}
+
+/**
+ * Inner nav content reused by desktop sidebar and mobile drawer.
  */
 export function SidebarContent({ currentRoute, onNavigate, progress }: SidebarContentProps) {
   const doneCount = Object.values(progress).filter((p) => p === "done").length;
@@ -30,107 +62,122 @@ export function SidebarContent({ currentRoute, onNavigate, progress }: SidebarCo
     <div className="p-4">
       {/* Progress Card */}
       <motion.div
-        whileHover={{ scale: 1.02 }}
-        className="p-4 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] mb-4"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="p-3 rounded-lg bg-[var(--surface-2)] border border-[var(--border-subtle)] mb-5"
       >
-        <div className="flex justify-between text-xs text-[var(--text-muted)] mb-2">
-          <span>Overall progress</span>
-          <span className="font-bold text-[var(--foreground)]">{percent}%</span>
+        <div className="flex items-center gap-3">
+          <ProgressRing percent={percent} />
+          <div className="flex-1">
+            <p className="text-xs font-medium text-[var(--text-muted)]">Overall progress</p>
+            <p className="text-sm font-semibold text-[var(--foreground)]">
+              {doneCount} of {totalTopics} topics
+            </p>
+          </div>
+          <span className="text-sm font-bold text-[var(--accent)]">{percent}%</span>
         </div>
-        <div className="h-2 bg-[var(--surface)] rounded-full overflow-hidden">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${percent}%` }}
-            transition={{ duration: 1, delay: 0.5 }}
-            className="h-full progress-animated rounded-full"
-          />
-        </div>
-        <p className="text-xs text-[var(--text-muted)] mt-2">
-          {doneCount} of {totalTopics} topics done
-        </p>
       </motion.div>
 
       {/* Navigation */}
-      <nav>
-        <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">
-          Quick Access
+      <nav className="space-y-5">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-subtle)] mb-2 px-1">
+            Quick Access
+          </div>
+          <ul className="space-y-0.5">
+            <NavItem
+              route="dashboard"
+              label="Dashboard"
+              emoji="📊"
+              currentRoute={currentRoute}
+              onNavigate={onNavigate}
+            />
+            <NavItem
+              route="flashcards"
+              label="Flashcards"
+              emoji="🃏"
+              currentRoute={currentRoute}
+              onNavigate={onNavigate}
+            />
+          </ul>
         </div>
-        <ul className="space-y-1 mb-4">
-          <li>
-            <button
-              onClick={() => onNavigate("dashboard")}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                currentRoute === "dashboard"
-                  ? "bg-[var(--primary-soft)] text-[var(--primary)] font-semibold"
-                  : "hover:bg-[var(--surface-2)]"
-              }`}
-            >
-              📊 Dashboard
-            </button>
-          </li>
-          <li>
-            <button
-              onClick={() => onNavigate("flashcards")}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                currentRoute === "flashcards"
-                  ? "bg-[var(--primary-soft)] text-[var(--primary)] font-semibold"
-                  : "hover:bg-[var(--surface-2)]"
-              }`}
-            >
-              🃏 Flashcards
-            </button>
-          </li>
-        </ul>
 
-        <div className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">
-          Topics
-        </div>
-        <ul className="space-y-1">
-          {TOPICS.map((topic, index) => (
-            <motion.li
-              key={topic.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <button
-                onClick={() => onNavigate(topic.id)}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  currentRoute === topic.id
-                    ? "bg-[var(--primary-soft)] text-[var(--primary)] font-semibold"
-                    : "hover:bg-[var(--surface-2)]"
-                }`}
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-subtle)] mb-2 px-1">
+            Curriculum
+          </div>
+          <ul className="space-y-0.5">
+            {TOPICS.map((topic, index) => (
+              <motion.li
+                key={topic.id}
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.04 }}
               >
-                <span className="w-5 text-center">{topic.emoji}</span>
-                <span className="flex-1 text-left truncate">{topic.title}</span>
-                {progress[topic.id] === "done" && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="text-[var(--accent)]"
-                  >
-                    ✓
-                  </motion.span>
-                )}
-              </button>
-            </motion.li>
-          ))}
-        </ul>
+                <button
+                  onClick={() => onNavigate(topic.id)}
+                  className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm transition-colors ${
+                    currentRoute === topic.id
+                      ? "bg-[var(--primary-soft)] text-[var(--primary)] font-medium"
+                      : "hover:bg-[var(--surface-2)] text-[var(--foreground)]"
+                  }`}
+                >
+                  <span className="w-5 text-center text-base leading-none">{topic.emoji}</span>
+                  <span className="flex-1 text-left truncate">{topic.title}</span>
+                  {progress[topic.id] === "done" && (
+                    <span className="text-[var(--success)] text-sm">✓</span>
+                  )}
+                </button>
+              </motion.li>
+            ))}
+          </ul>
+        </div>
       </nav>
     </div>
   );
 }
 
+function NavItem({
+  route,
+  label,
+  emoji,
+  currentRoute,
+  onNavigate,
+}: {
+  route: string;
+  label: string;
+  emoji: string;
+  currentRoute: string;
+  onNavigate: (route: string) => void;
+}) {
+  const active = currentRoute === route;
+  return (
+    <li>
+      <button
+        onClick={() => onNavigate(route)}
+        className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm transition-colors ${
+          active
+            ? "bg-[var(--primary-soft)] text-[var(--primary)] font-medium"
+            : "hover:bg-[var(--surface-2)] text-[var(--foreground)]"
+        }`}
+      >
+        <span className="w-5 text-center text-base leading-none">{emoji}</span>
+        <span className="flex-1 text-left">{label}</span>
+      </button>
+    </li>
+  );
+}
+
 /**
- * Fixed left sidebar with overall progress, quick access links, and the topic list.
+ * Fixed left sidebar.
  */
 export default function Sidebar({ currentRoute, onNavigate, progress }: SidebarProps) {
   return (
     <motion.aside
       initial={{ x: -300 }}
       animate={{ x: 0 }}
-      transition={{ delay: 0.2, type: "spring", stiffness: 100 }}
-      className="hidden lg:block fixed left-0 top-16 bottom-0 w-72 glass border-r border-[var(--border)] overflow-y-auto"
+      transition={{ delay: 0.15, type: "spring", stiffness: 100 }}
+      className="hidden lg:block fixed left-0 top-11 bottom-0 w-72 glass border-r border-[var(--border)] overflow-y-auto"
     >
       <SidebarContent currentRoute={currentRoute} onNavigate={onNavigate} progress={progress} />
     </motion.aside>

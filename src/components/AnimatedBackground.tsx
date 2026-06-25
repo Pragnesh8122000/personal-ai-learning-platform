@@ -1,30 +1,28 @@
 "use client";
 
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Sphere, MeshDistortMaterial } from "@react-three/drei";
-
 /**
- * Full-screen 3D background. Renders a slowly distorting sphere with auto-rotation.
- * Purely decorative — the page sits on top of it.
+ * Subtle ambient background for the app.
+ *
+ * The previous React Three Fiber sphere was visually loud and competed with the
+ * content. This version uses a slow CSS gradient mesh that stays behind the UI
+ * and keeps motion gentle. It is purely decorative and respects reduced motion
+ * via the global media query.
  */
 export default function AnimatedBackground() {
   return (
-    <div className="fixed inset-0 -z-10 overflow-hidden">
-      <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 10, 5]} intensity={1} />
-        <Sphere args={[1, 100, 200]} scale={2.5}>
-          <MeshDistortMaterial
-            color="#5b8def"
-            attach="material"
-            distort={0.4}
-            speed={2}
-            roughness={0.2}
-            metalness={0.8}
-          />
-        </Sphere>
-        <OrbitControls enableZoom={false} autoRotate autoRotateSpeed={0.5} />
-      </Canvas>
+    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+      <div
+        className="absolute -top-1/2 -left-1/2 w-[200%] h-[200%] opacity-40 dark:opacity-25 animate-spin"
+        style={{
+          background: `
+            radial-gradient(circle at 30% 30%, rgba(212, 160, 23, 0.14) 0%, transparent 35%),
+            radial-gradient(circle at 70% 60%, rgba(74, 111, 165, 0.12) 0%, transparent 40%),
+            radial-gradient(circle at 50% 90%, rgba(90, 158, 124, 0.08) 0%, transparent 35%)
+          `,
+          animationDuration: "120s",
+        }}
+        aria-hidden="true"
+      />
     </div>
   );
 }
