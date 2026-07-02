@@ -16,6 +16,7 @@ export interface VideoContent {
   creator?: string;
 }
 
+
 export interface TableContent {
   headers: string[];
   rows: string[][];
